@@ -89,6 +89,14 @@ def extract_game_info(text):
         elif ent.label_ == "TIME":
             game_time = ent.text
 
+    if not age:
+        lower_text = text.lower()
+        age_match = re.search(r"\b(?:age|aged|ages)\s*(\d+)", lower_text)
+        if age_match:
+            age = age_match.group(1)
+        elif "young" in lower_text:
+            age = "young"
+
 
     return {
         "year": year,
