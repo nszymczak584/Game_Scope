@@ -97,6 +97,26 @@ def extract_game_info(text):
         elif "young" in lower_text:
             age = "young"
 
+    for token in doc:
+        if token.text.isdigit():
+            if token.head.lemma_.lower() in player_keywords:
+                num_players = int(token.text)
+                break
+
+            found_player = False
+            for child in token.head.children:
+                if child.lemma_.lower() in player_keywords:
+                    num_players = int(token.text)
+                    found_player = True
+                    break
+
+            if found_player:
+                break
+
+    if not num_players:
+        player_match = re.search(r"(group of) (\d+)", text.lower())
+        if player_match:
+            num_players = int(player_match.group(2))
 
     return {
         "year": year,
