@@ -1,9 +1,7 @@
 import sqlite3
-import spacy
-import numpy as np
 from sense2vec import Sense2Vec
+from utils import get_vector
 
-nlp = spacy.load("en_core_web_lg")
 s2v = Sense2Vec().from_disk("data/s2v_old")
 
 
@@ -21,27 +19,6 @@ def setup_database():
         except sqlite3.OperationalError:
 
             print("'description_vector' column already exists or some other error")
-
-
-def get_vector(text, s2v_model):
-
-    doc = nlp(text.lower())
-    vectors = []
-
-    for token in doc:
-
-        if token.is_punct or token.is_space:
-            continue
-        key = f"{token.text}|{token.pos_}"
-
-        if key in s2v_model:
-            vectors.append(s2v_model[key])
-
-    if vectors:
-
-        return np.mean(vectors, axis=0).astype(np.float32)
-
-    return None
 
 
 def precompute_and_store_vectors():
