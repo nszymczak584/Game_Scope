@@ -76,4 +76,4 @@ def extract_game_info(text):
         "num_players": num_players
     }
 
-print(extract_game_info("I want a game for 4 people, around 30 minutes, suitable for ages 10 and up, released after 2015."))
+# print(extract_game_info("I want a game for 4 people, around 30 minutes, suitable for ages 10 and up, released after 2015."))
