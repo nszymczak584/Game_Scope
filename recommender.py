@@ -6,12 +6,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 from input_interpreter import extract_game_info
 from utils import get_vector
 from sense import s2v
+from gru import predict_top_labels
 
 def build_sql_and_params(extracted_info):
-    """
-    Tłumaczy filtry na zapytanie SQL.
-    """
-    query = "SELECT id, title, description, description_vector, quality_score FROM boardgames WHERE 1=1"
+    query = "SELECT id, title, description, description_vector, quality_score, domains FROM boardgames WHERE 1=1"
     params = []
     
     num_players = extracted_info.get("num_players")
@@ -35,7 +33,7 @@ def build_sql_and_params(extracted_info):
     return query, params
 
 
-def recommend_best_games(user_query, s2v_model, db_path="boardgames.db", top_n=5):
+def recommend_best_games(user_query, s2v_model, gru_model, mlb, word_to_idx, db_path="boardgames.db", top_n=5):
     extracted_info = extract_game_info(user_query)
     sql_query, params = build_sql_and_params(extracted_info)
     
@@ -47,38 +45,50 @@ def recommend_best_games(user_query, s2v_model, db_path="boardgames.db", top_n=5
         rows = cursor.fetchall()
         
 
-        for game_id, title, description, vector_blob, quality_score in rows:
+        for game_id, title, description, vector_blob, quality_score, domains in rows:
             if vector_blob:
                 vector = np.frombuffer(vector_blob, dtype=np.float32)
                 
                 #jeśli gra nie ma oceny w bazie (jest NULL), dajemy jej przeciętne 5.0
                 if quality_score is None:
                     quality_score = 5.0
-                    
-                filtered_games.append((game_id, title, description, vector, quality_score))
+
+                filtered_games.append((game_id, title, description, vector, quality_score, domains or ""))
                 
     if not filtered_games:
         return "Brak gier spełniających twarde kryteria liczbowe."
         
+    # GRU wytypowuje kategorie
+    predicted_domains = predict_top_labels(user_query, gru_model, mlb, word_to_idx, top_k=3, threshold=0.000001)
+    target_domains = {domain.strip().lower() for domain in predicted_domains if domain.strip()} if predicted_domains else set()
+
     query_vector = get_vector(user_query, s2v_model)
     if query_vector is None:
         return "System nie był w stanie stworzyć wektora dla podanego zapytania."
         
     recommendations = []
-    #Pętla rozpakowuje teraz również quality_score
-    for game_id, title, description, desc_vector, quality_score in filtered_games:
+    
+    for game_id, title, description, desc_vector, quality_score, domains in filtered_games:
         
-        # 1. Obliczamy podobieństwo tekstu (0.0 do 1.0)
+        #Obliczamy podobieństwo tekstu z Sense2Vec
         similarity = cosine_similarity([query_vector], [desc_vector])[0][0]
         
-
-        # 70% wagi to dopasowanie do zapytania, 30% wagi to to, jak bardzo gra jest lubiana
-        nlp_weight = 0.70
+        #Sprawdzamy, czy kategoria gry pasuje do tego, co odgadło GRU
+        domain_score = 0.0
+        game_domains = {d.strip().lower() for d in domains.split(',') if d.strip()}
+        if target_domains and (game_domains & target_domains):
+            domain_score = 1.0 # Dajemy pełen punkt bonusowy
+            
+        #Normalizujemy jakość
+        normalized_quality = quality_score / 10.0  
+        
+        # 60% wagi dla podobieństwa NLP, 30% dla jakości, 10% dla dopasowania kategorii (jeśli GRU coś przewidziało) 
+        nlp_weight = 0.60
         quality_weight = 0.30
+        domain_weight = 0.10
         
-        normalized_quality = quality_score / 10.0  # Sprowadzenie 1-10 do 0-1
-        
-        final_score = (similarity * nlp_weight) + (normalized_quality * quality_weight)
+        # Ostateczny wzór uwzględniający wszystkie 3 sztuczne inteligencje/statystyki
+        final_score = (similarity * nlp_weight) + (normalized_quality * quality_weight) + (domain_score * domain_weight)
         
         # Dodajemy wszystko do listy
         recommendations.append({
@@ -86,7 +96,7 @@ def recommend_best_games(user_query, s2v_model, db_path="boardgames.db", top_n=5
             "final_score": final_score,
             "similarity": similarity,
             "quality": quality_score,
-            "description": description[:500] + "..." # Zwracamy kawałek opisu gry
+            "description": description
         })
         
     # Sortujemy malejąco

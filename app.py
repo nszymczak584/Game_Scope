@@ -1,6 +1,7 @@
 import streamlit as st
 from sense2vec import Sense2Vec
 from recommender import recommend_best_games
+from gru import load_trained_model
 
 # Konfiguracja wyglądu strony
 st.set_page_config(
@@ -11,12 +12,14 @@ st.set_page_config(
 
 # cachowanie modelu Sense2Vec, aby nie ładować go za każdym razem
 @st.cache_resource
-def load_s2v_model():
-    return Sense2Vec().from_disk("data/s2v_old")
+def load_ai_models():
+    s2v = Sense2Vec().from_disk("data/s2v_old")
+    gru_model, mlb, word_to_idx = load_trained_model()
+    return s2v, gru_model, mlb, word_to_idx
 
-# Wczytywanie modelu
-with st.spinner("Loading Sense2Vec model..."):
-    s2v = load_s2v_model()
+# Wczytywanie modeli
+with st.spinner("Loading AI models (Sense2Vec & GRU)..."):
+    s2v, gru_model, mlb, word_to_idx = load_ai_models()
 
 st.title("🎲 GameScope")
 
@@ -36,7 +39,8 @@ if submit_button:
     else:
         with st.spinner("Searching for the best games..."):
             
-            wyniki = recommend_best_games(user_query, s2v, top_n=top_n_results)
+   
+            wyniki = recommend_best_games(user_query, s2v, gru_model, mlb, word_to_idx, top_n=top_n_results)
             
             st.divider() 
             
@@ -45,12 +49,15 @@ if submit_button:
             elif isinstance(wyniki, list) and wyniki:
                 st.success("We found the perfect matches!")
                 
-                # Ulepszone wyświetlanie wyników hybrydowych (z poprzedniego kroku)
+                # Wyświetlanie wyników hybrydowych
                 for i, game in enumerate(wyniki, 1):
                     with st.container(border=True):
                         st.markdown(f"### {i}. {game['title']}")
                         st.write(f"⭐ **Quality:** {game['quality']}/10")
                         st.write(f"🧠 **Query Similarity:** {game['similarity']:.2f}")
-                        st.info(f"📝 **Description:** {game['description']}")
+                        
+                        # Zastosowanie rozwijanego panelu dla długich opisów
+                        with st.expander("📝 Read full description"):
+                            st.write(game['description'])
             else:
                 st.info("No games found matching your criteria.")
