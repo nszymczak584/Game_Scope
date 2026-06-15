@@ -61,7 +61,7 @@ def recommend_best_games(user_query, s2v_model, gru_model, mlb, word_to_idx, db_
             if vector_blob:
                 vector = np.frombuffer(vector_blob, dtype=np.float32)
                 
-                #jeśli gra nie ma oceny w bazie (jest NULL), dajemy jej przeciętne 5.0
+                #jeśli gra nie ma oceny w bazie dajemy 0.5
                 if quality_score is None:
                     quality_score = 5.0
 
@@ -83,17 +83,14 @@ def recommend_best_games(user_query, s2v_model, gru_model, mlb, word_to_idx, db_
     
     for game_id, title, description, desc_vector, quality_score, domains in filtered_games:
         
-        #Obliczamy podobieństwo tekstu z Sense2Vec
         similarity = cosine_similarity([query_vector], [desc_vector])[0][0]
         
-        #Sprawdzamy, czy kategoria gry pasuje do tego, co odgadło GRU
         domain_score = 0.0
         game_domains = {d.strip().lower() for d in domains.split(',') if d.strip()}
         if target_domains and (game_domains & target_domains):
             domain_score = 1.0 # Dajemy pełen punkt bonusowy
             
-        #Normalizujemy jakość
-        normalized_quality = quality_score / 10.0  
+        normalized_quality = quality_score / 10.0
         
         nlp_weight = 0.70
         quality_weight = 0.15
@@ -101,7 +98,6 @@ def recommend_best_games(user_query, s2v_model, gru_model, mlb, word_to_idx, db_
         
         final_score = (similarity * nlp_weight) + (normalized_quality * quality_weight) + (domain_score * domain_weight)
         
-        # Dodajemy wszystko do listy
         recommendations.append({
             "title": title,
             "final_score": final_score,
@@ -110,7 +106,7 @@ def recommend_best_games(user_query, s2v_model, gru_model, mlb, word_to_idx, db_
             "description": description
         })
         
-    # Sortujemy malejąco
+    # sortujemy malejąco
     recommendations.sort(key=lambda x: x["final_score"], reverse=True)
     
     return recommendations[:top_n]

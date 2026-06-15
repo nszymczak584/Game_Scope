@@ -17,13 +17,10 @@ def apply_distribution_ratings(csv_path="data/ratings_distribution.csv", db_path
 
     print("Obliczanie średniej ważonej")
     
-    # Wyłapujemy wszystkie kolumny, które są ułamkami
     rating_columns = [col for col in df.columns if col.replace('.', '', 1).isdigit() and col != 'BGGId']
     
-    # Inicjalizujemy kolumnę sumy
     weighted_sum = pd.Series(0.0, index=df.index)
     
-    # Obliczamy sumę ważoną
     for col in rating_columns:
         rating_value = float(col)
         weighted_sum += rating_value * df[col].fillna(0)
@@ -33,7 +30,6 @@ def apply_distribution_ratings(csv_path="data/ratings_distribution.csv", db_path
 
     print(f"Wyliczono jakość dla {len(df)} unikalnych gier.")
 
-    # zapisywanie wyników do bazy danych
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
@@ -50,7 +46,6 @@ def apply_distribution_ratings(csv_path="data/ratings_distribution.csv", db_path
     for _, row in df.iterrows():
         updates.append((row['quality_score'], int(row['BGGId'])))
 
-    # Aktualizacja bazy SQL
     cursor.executemany("UPDATE boardgames SET quality_score = ? WHERE id = ?", updates)
     conn.commit()
     conn.close()

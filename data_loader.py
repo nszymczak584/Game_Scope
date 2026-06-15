@@ -10,7 +10,6 @@ def safe_int(value, default=0):
     except ValueError:
         return default
 
-# Funkcja przyjmuje teraz pełną ścieżkę bezwzględną
 def load_binary_csv(filepath):
     print(f"Przetwarzam plik: {filepath}...")
     feature_dict = {}
@@ -49,11 +48,9 @@ def build_full_database():
     print(f"Lokalizacja skryptu: {script_dir}")
     print(f"Szukam plików w: {os.path.join(script_dir, 'data')}\n")
     
-    # 1. Wczytujemy mechaniki i motywy przy użyciu pełnych ścieżek
     mechanics_lookup = load_binary_csv(mechanics_path)
     themes_lookup = load_binary_csv(themes_path)
     
-    # 2. Tworzymy / otwieramy bazę danych SQLite w tym samym folderze co skrypt
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
@@ -74,7 +71,6 @@ def build_full_database():
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_title ON boardgames(title)")
     
-    # 3. Czytamy główny plik games.csv
     print(f"Otwieram główny plik: {games_path}")
     
     if not os.path.exists(games_path):

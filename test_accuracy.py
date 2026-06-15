@@ -3,7 +3,6 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import accuracy_score, f1_score, classification_report
 from sklearn.model_selection import train_test_split
 
-# UWAGA: Jeśli Twój główny plik nazywa się inaczej, zmień "train_gru" na swoją nazwę (bez .py)
 from gru import load_trained_model, prepare_dataset, DEVICE
 
 def evaluate_model(threshold=0.5):
@@ -14,11 +13,9 @@ def evaluate_model(threshold=0.5):
         print("Błąd: Nie znaleziono modelu lub pliku meta. Najpierw uruchom główny skrypt, aby wytrenować model.")
         return
 
-    # Pobieramy dane i odtwarzamy zbiór testowy
     X_all, y_all, vocab_size, _, _ = prepare_dataset()
     _, X_test, _, y_test = train_test_split(X_all, y_all, test_size=0.2, random_state=42)
 
-    # Pakujemy dane testowe w DataLoader
     test_loader = DataLoader(
         TensorDataset(X_test.to(DEVICE), y_test.to(DEVICE)), 
         batch_size=32, 
@@ -40,7 +37,7 @@ def evaluate_model(threshold=0.5):
             all_preds.extend(preds.cpu().numpy())
             all_trues.extend(batch_y.cpu().numpy())
 
-    # --- OBLICZANIE GŁÓWNYCH METRYK ---
+    # poniżej metryki
     exact_match_acc = accuracy_score(all_trues, all_preds)
     f1_micro = f1_score(all_trues, all_preds, average='micro', zero_division=0)
     f1_macro = f1_score(all_trues, all_preds, average='macro', zero_division=0)
@@ -54,7 +51,6 @@ def evaluate_model(threshold=0.5):
     print(f"F1-Score (Macro):           {f1_macro:.4f}")
     print("="*40)
 
-    # --- TABELA KLAS POSORTOWANA MALEJĄCO PO F1-SCORE ---
     report_dict = classification_report(all_trues, all_preds, target_names=mlb.classes_, zero_division=0, output_dict=True)
     
     class_metrics = []
@@ -68,7 +64,7 @@ def evaluate_model(threshold=0.5):
                 'support': int(metrics['support'])
             })
 
-    # Sortowanie malejąco po wybranej metryce (F1-score)
+    # malejąco
     class_metrics_sorted = sorted(class_metrics, key=lambda x: x['f1'], reverse=True)
 
     print("\nSzczegółowy raport dla każdej z klas (posortowany malejąco po F1-score):")
