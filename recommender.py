@@ -29,6 +29,18 @@ def build_sql_and_params(extracted_info):
             time_int = int(time_match.group())
             query += " AND minplaytime <= ? AND maxplaytime >= ?"
             params.extend([time_int + 30, max(0, time_int - 30)])
+
+    year = extracted_info.get("year")
+    if year:
+        if year.endswith("+"):
+            query += " AND yearpublished >= ?"
+            params.append(int(year[:-1]))
+        elif year.endswith("-"):
+            query += " AND yearpublished <= ?"
+            params.append(int(year[:-1]))
+        elif year.isdigit():
+            query += " AND yearpublished = ?"
+            params.append(int(year))
             
     return query, params
 
@@ -59,7 +71,8 @@ def recommend_best_games(user_query, s2v_model, gru_model, mlb, word_to_idx, db_
         return "Brak gier spełniających twarde kryteria liczbowe."
         
     # GRU wytypowuje kategorie
-    predicted_domains = predict_top_labels(user_query, gru_model, mlb, word_to_idx, top_k=3, threshold=0.000001)
+    predicted_domains = predict_top_labels(user_query, gru_model, mlb, word_to_idx, top_k=3, threshold=0.5)
+    print(f"GRU predicted domains: {predicted_domains if predicted_domains else 'No confident predictions'}")
     target_domains = {domain.strip().lower() for domain in predicted_domains if domain.strip()} if predicted_domains else set()
 
     query_vector = get_vector(user_query, s2v_model)
@@ -82,12 +95,10 @@ def recommend_best_games(user_query, s2v_model, gru_model, mlb, word_to_idx, db_
         #Normalizujemy jakość
         normalized_quality = quality_score / 10.0  
         
-        # 60% wagi dla podobieństwa NLP, 30% dla jakości, 10% dla dopasowania kategorii (jeśli GRU coś przewidziało) 
-        nlp_weight = 0.60
-        quality_weight = 0.30
-        domain_weight = 0.10
+        nlp_weight = 0.70
+        quality_weight = 0.15
+        domain_weight = 0.15
         
-        # Ostateczny wzór uwzględniający wszystkie 3 sztuczne inteligencje/statystyki
         final_score = (similarity * nlp_weight) + (normalized_quality * quality_weight) + (domain_score * domain_weight)
         
         # Dodajemy wszystko do listy

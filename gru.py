@@ -74,8 +74,7 @@ def predict_top_labels(text: str, model, mlb, word_to_idx, top_k: int = 5, thres
     
    
     if len(valid_indices) == 0:
-        _, top_idx = torch.topk(probs, k=1)
-        return [mlb.classes_[top_idx.item()]]
+        return []
 
     valid_probs = probs[valid_indices]
 
